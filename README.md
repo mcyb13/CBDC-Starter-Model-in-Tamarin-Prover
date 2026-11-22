@@ -70,7 +70,3 @@ In v1, Tamarin finds a trace where one signed request, sent by the attacker twic
 2. Model balances so double spending is captured directly.
 3. Add a key-reveal rule and weaken the lemmas to "unless Alice's key was revealed".
 4. Replace the plain signature with a zero-knowledge proof and threshold signature abstraction, and study whether a payment can hide the sender from the issuer while still preventing double spending.
-
-## Screenshots
-
-Add your own captures to a `screenshots/` folder and link them here, for example the attack graph for `no_replay` in v1 and the final all-green run for v2.
