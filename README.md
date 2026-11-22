@@ -69,6 +69,6 @@ Maham Nasir
 MS Cybersecurity, COMSATS University Islamabad, Pakistan
 Researcher in Post-Quantum Cryptography & Privacy-Preserving Protocols
 
-LinkedIn
+LinkedIn: https://www.linkedin.com/maham-n-0315
 
 "This project is part of ongoing independent research into post-quantum cryptographic protocol design, with applications to privacy-preserving digital currency systems (CBDCs) and secure identity protocols using formal verification."
