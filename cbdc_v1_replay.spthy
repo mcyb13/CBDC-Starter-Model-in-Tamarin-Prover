@@ -1,0 +1,79 @@
+/*
+  CBDC starter model, version 1 (replay-vulnerable)
+
+  Alice signs a payment request, the issuer verifies the signature and
+  accepts it, and Bob receives a confirmation. The adversary is the standard
+  Dolev-Yao network attacker. There is exactly one Alice.
+
+  Expected results:
+    executable         verified
+    payment_integrity  verified  (relies on signature unforgeability)
+    no_replay          FALSIFIED  (the same signed request is accepted twice)
+*/
+
+theory CBDC_V1_Replay
+begin
+
+builtins: signing
+
+// Eq(x, y) in an action position forces x = y on every trace.
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+// Only one Alice key pair exists in any trace.
+restriction OnlyOnce:
+  "All #i #j. OnlyOnce('Alice') @ #i & OnlyOnce('Alice') @ #j ==> #i = #j"
+
+// Alice generates a key pair and publishes the public key.
+rule Setup_Alice:
+  [ Fr(~skA) ]
+  --[ OnlyOnce('Alice') ]->
+  [ !Ltk('Alice', ~skA),
+    !Pk('Alice', pk(~skA)),
+    Out(pk(~skA)) ]
+
+// Alice creates a fresh transaction id and sends a signed payment request.
+rule Alice_Payment:
+  [ !Ltk('Alice', skA),
+    Fr(~tid) ]
+  --[ Initiated(~tid, 'Alice', 'Bob', 'ten') ]->
+  [ Out(<~tid, 'Alice', 'Bob', 'ten',
+         sign(<~tid, 'Alice', 'Bob', 'ten'>, skA)>) ]
+
+// The issuer accepts any request carrying a valid signature from Alice.
+// It keeps no record of past transactions, which allows replay.
+rule Issuer_Processing:
+  [ !Pk('Alice', pkA),
+    In(<tid, 'Alice', 'Bob', 'ten', sig>) ]
+  --[ Eq(verify(sig, <tid, 'Alice', 'Bob', 'ten'>, pkA), true),
+      Accepted(tid, 'Alice', 'Bob', 'ten') ]->
+  [ Paid(tid, 'Alice', 'Bob', 'ten'),
+    Out(<tid, 'PaymentAccepted', 'Bob', 'ten'>) ]
+
+// Bob receives an (unsigned) confirmation.
+rule Bob_Receive:
+  [ In(<tid, 'PaymentAccepted', 'Bob', 'ten'>) ]
+  --[ Received(tid, 'Bob', 'ten') ]->
+  [ ]
+
+// Sanity check: the protocol can run from start to finish.
+lemma executable:
+  exists-trace
+  "Ex tid #i #j.
+     Accepted(tid, 'Alice', 'Bob', 'ten') @ #i
+     & Received(tid, 'Bob', 'ten') @ #j
+     & #i < #j"
+
+// The issuer only accepts payments that Alice initiated earlier.
+lemma payment_integrity:
+  "All tid s r a #i.
+     Accepted(tid, s, r, a) @ #i
+     ==> Ex #j. Initiated(tid, s, r, a) @ #j & #j < #i"
+
+// The same payment is never accepted twice.
+lemma no_replay:
+  "All tid s r a #i #k.
+     Accepted(tid, s, r, a) @ #i & Accepted(tid, s, r, a) @ #k
+     ==> #i = #k"
+
+end

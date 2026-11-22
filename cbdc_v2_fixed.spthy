@@ -1,0 +1,89 @@
+/*
+  CBDC starter model, version 2 (spent-transaction check)
+
+  Alice signs a payment request, the issuer verifies the signature and
+  accepts it, and Bob receives a confirmation. The adversary is the standard
+  Dolev-Yao network attacker. There is exactly one Alice.
+
+  Same as version 1, plus a spent-transaction check at the issuer, modelled
+  with a Spent(tid) action fact and the SpentOnce restriction. This assumes the
+  issuer keeps a ledger and refuses duplicates. no_replay therefore holds by
+  construction of that assumption, not because Tamarin found a defence.
+
+  Expected results:
+    executable         verified
+    payment_integrity  verified
+    no_replay          verified
+*/
+
+theory CBDC_V2_Fixed
+begin
+
+builtins: signing
+
+// Eq(x, y) in an action position forces x = y on every trace.
+restriction Equality:
+  "All x y #i. Eq(x, y) @ #i ==> x = y"
+
+// Only one Alice key pair exists in any trace.
+restriction OnlyOnce:
+  "All #i #j. OnlyOnce('Alice') @ #i & OnlyOnce('Alice') @ #j ==> #i = #j"
+
+// A transaction id can be spent at most once (models the issuer's ledger).
+restriction SpentOnce:
+  "All tid #i #j. Spent(tid) @ #i & Spent(tid) @ #j ==> #i = #j"
+
+// Alice generates a key pair and publishes the public key.
+rule Setup_Alice:
+  [ Fr(~skA) ]
+  --[ OnlyOnce('Alice') ]->
+  [ !Ltk('Alice', ~skA),
+    !Pk('Alice', pk(~skA)),
+    Out(pk(~skA)) ]
+
+// Alice creates a fresh transaction id and sends a signed payment request.
+rule Alice_Payment:
+  [ !Ltk('Alice', skA),
+    Fr(~tid) ]
+  --[ Initiated(~tid, 'Alice', 'Bob', 'ten') ]->
+  [ Out(<~tid, 'Alice', 'Bob', 'ten',
+         sign(<~tid, 'Alice', 'Bob', 'ten'>, skA)>) ]
+
+// The issuer accepts a request carrying a valid signature from Alice and
+// records the transaction id as spent.
+rule Issuer_Processing:
+  [ !Pk('Alice', pkA),
+    In(<tid, 'Alice', 'Bob', 'ten', sig>) ]
+  --[ Eq(verify(sig, <tid, 'Alice', 'Bob', 'ten'>, pkA), true),
+      Accepted(tid, 'Alice', 'Bob', 'ten'),
+      Spent(tid) ]->
+  [ Paid(tid, 'Alice', 'Bob', 'ten'),
+    Out(<tid, 'PaymentAccepted', 'Bob', 'ten'>) ]
+
+// Bob receives an (unsigned) confirmation.
+rule Bob_Receive:
+  [ In(<tid, 'PaymentAccepted', 'Bob', 'ten'>) ]
+  --[ Received(tid, 'Bob', 'ten') ]->
+  [ ]
+
+// Sanity check: the protocol can run from start to finish.
+lemma executable:
+  exists-trace
+  "Ex tid #i #j.
+     Accepted(tid, 'Alice', 'Bob', 'ten') @ #i
+     & Received(tid, 'Bob', 'ten') @ #j
+     & #i < #j"
+
+// The issuer only accepts payments that Alice initiated earlier.
+lemma payment_integrity:
+  "All tid s r a #i.
+     Accepted(tid, s, r, a) @ #i
+     ==> Ex #j. Initiated(tid, s, r, a) @ #j & #j < #i"
+
+// The same payment is never accepted twice.
+lemma no_replay:
+  "All tid s r a #i #k.
+     Accepted(tid, s, r, a) @ #i & Accepted(tid, s, r, a) @ #k
+     ==> #i = #k"
+
+end
