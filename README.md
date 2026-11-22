@@ -63,3 +63,12 @@ In v1, Tamarin finds a trace where one signed request, sent by the attacker twic
 - No key-compromise rule.
 - No privacy properties, which are the main goal of the planned zero-knowledge work.
 - The spent-id ledger is assumed through a restriction, not implemented.
+- 
+👩‍💻 Author
+Maham Nasir
+MS Cybersecurity, COMSATS University Islamabad, Pakistan
+Researcher in Post-Quantum Cryptography & Privacy-Preserving Protocols
+
+LinkedIn
+
+"This project is part of ongoing independent research into post-quantum cryptographic protocol design, with applications to privacy-preserving digital currency systems (CBDCs) and secure identity protocols using formal verification."
